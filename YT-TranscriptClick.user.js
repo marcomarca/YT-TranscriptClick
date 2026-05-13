@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YT-TranscriptClick
 // @namespace    https://github.com/marcomarca/YT-TranscriptClick
-// @version      0.2.0
+// @version      0.4.0
 // @description  Floating YouTube subtitle extractor for plain text with quick copy for Tampermonkey.
 // @author       marcomarca
 // @homepageURL  https://github.com/marcomarca/YT-TranscriptClick
@@ -470,7 +470,18 @@
         font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         box-sizing: border-box;
         overflow: hidden;
-        transition: width .16s ease, box-shadow .16s ease;
+        contain: layout style paint;
+      }
+      html:has(:fullscreen) #${APP}_panel,
+      body:has(:fullscreen) #${APP}_panel,
+      body:has(.html5-video-player.ytp-fullscreen) #${APP}_panel,
+      body:has(#movie_player.ytp-fullscreen) #${APP}_panel,
+      body:has(ytd-watch-flexy[fullscreen]) #${APP}_panel,
+      body:has(ytd-app[fullscreen]) #${APP}_panel,
+      body:has(.ytp-fullscreen) #${APP}_panel {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
       }
       #${APP}_panel.__open {
         width: min(420px, calc(100vw - 28px));
@@ -1125,15 +1136,4 @@
   window.addEventListener('yt-navigate-finish', onNavigation);
   window.addEventListener('popstate', onNavigation);
 
-  window.addEventListener('resize', () => {
-    if (!STATE.panel) return;
-
-    const rect = STATE.panel.getBoundingClientRect();
-    const position = clampPanelPosition(rect.left, rect.top);
-
-    STATE.panel.style.left = `${position.left}px`;
-    STATE.panel.style.top = `${position.top}px`;
-    STATE.panel.style.right = 'auto';
-    STATE.panel.style.bottom = 'auto';
-  }, { passive: true });
 })();
