@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YT-TranscriptClick
 // @namespace    https://github.com/marcomarca/YT-TranscriptClick
-// @version      0.1.0
-// @description  Extractor flotante de subtítulos de YouTube en texto plano con copia rápida para Tampermonkey.
+// @version      0.2.0
+// @description  Floating YouTube subtitle extractor for plain text with quick copy for Tampermonkey.
 // @author       marcomarca
 // @homepageURL  https://github.com/marcomarca/YT-TranscriptClick
 // @supportURL   https://github.com/marcomarca/YT-TranscriptClick/issues
@@ -36,11 +36,14 @@
     lastText: '',
     lastTitle: '',
     panel: null,
+    menu: null,
     textarea: null,
     status: null,
     extractBtn: null,
+    toggleBtn: null,
     copyBtn: null,
     downloadBtn: null,
+    expanded: false,
     drag: {
       active: false,
       pointerId: null,
@@ -54,7 +57,7 @@
   function getPageWindow() {
     try {
       if (typeof unsafeWindow !== 'undefined' && unsafeWindow) return unsafeWindow;
-    } catch (_) {}
+    } catch (_) { }
     return window;
   }
 
@@ -71,7 +74,7 @@
           createHTML: (value) => value,
         });
         break;
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 
@@ -100,7 +103,7 @@
 
       const embedMatch = url.pathname.match(/^\/embed\/([^/?#]+)/);
       if (embedMatch) return embedMatch[1];
-    } catch (_) {}
+    } catch (_) { }
 
     return '';
   }
@@ -118,7 +121,7 @@
       const response = pageWindow.ytInitialPlayerResponse;
       const fromResponse = response && response.videoDetails && response.videoDetails.title;
       if (fromResponse) return fromResponse;
-    } catch (_) {}
+    } catch (_) { }
 
     const h1 = document.querySelector('h1 yt-formatted-string, h1.title, h1');
     const fromDom = h1 ? (h1.innerText || h1.textContent || '').trim() : '';
@@ -142,7 +145,7 @@
       if (input && typeof input.url === 'string') return input.url;
       if (input && typeof input.href === 'string') return input.href;
       if (input && typeof input.toString === 'function') return input.toString();
-    } catch (_) {}
+    } catch (_) { }
     return '';
   }
 
@@ -164,7 +167,7 @@
         writable: false,
       });
     } catch (_) {
-      try { fn[key] = true; } catch (_) {}
+      try { fn[key] = true; } catch (_) { }
     }
   }
 
@@ -296,7 +299,7 @@
       hasPot = parsed.searchParams.has('pot');
       lang = parsed.searchParams.get('lang') || '';
       fmt = parsed.searchParams.get('fmt') || '';
-    } catch (_) {}
+    } catch (_) { }
 
     const capture = {
       ts: Date.now(),
@@ -361,9 +364,9 @@
                   body,
                   method: 'page-fetch',
                 });
-              }).catch(() => {});
-            } catch (_) {}
-          }).catch(() => {});
+              }).catch(() => { });
+            } catch (_) { }
+          }).catch(() => { });
         }
 
         return promise;
@@ -414,7 +417,7 @@
                   if (!this.responseType || this.responseType === 'text') {
                     body = this.responseText || '';
                   }
-                } catch (_) {}
+                } catch (_) { }
 
                 ingestTimedTextCapture({
                   url: this.__captionLiftTimedTextUrl,
@@ -425,7 +428,7 @@
                   method: 'page-xhr',
                 });
               });
-            } catch (_) {}
+            } catch (_) { }
           }
 
           return originalSend.apply(this, arguments);
@@ -457,40 +460,143 @@
         right: 18px;
         bottom: 18px;
         z-index: 2147483647;
-        width: min(440px, calc(100vw - 28px));
+        width: min(286px, calc(100vw - 28px));
         background: rgba(18, 18, 22, 0.94);
         color: #f5f7fb;
         border: 1px solid rgba(255,255,255,.12);
-        border-radius: 16px;
-        box-shadow: 0 18px 48px rgba(0,0,0,.36);
+        border-radius: 14px;
+        box-shadow: 0 14px 38px rgba(0,0,0,.34);
         backdrop-filter: blur(14px);
         font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         box-sizing: border-box;
         overflow: hidden;
+        transition: width .16s ease, box-shadow .16s ease;
       }
-      #${APP}_panel, #${APP}_panel * { box-sizing: border-box; }
-      #${APP}_panel.__dragging, #${APP}_panel.__dragging * { cursor: grabbing !important; user-select: none !important; }
-      #${APP}_header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.10); }
-      #${APP}_drag { cursor: grab; width: 28px; height: 28px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; color: rgba(245,247,251,.74); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10); user-select: none; font-weight: 700; line-height: 1; }
-      #${APP}_title { flex: 1; min-width: 0; }
-      #${APP}_title strong { display: block; font-size: 13px; color: #fff; }
-      #${APP}_title span { display: block; margin-top: 2px; color: rgba(245,247,251,.66); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      #${APP}_body { padding: 12px; display: grid; gap: 10px; }
-      #${APP}_buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-      #${APP}_panel button { min-height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.07); color: #f5f7fb; padding: 0 10px; cursor: pointer; font: inherit; }
-      #${APP}_panel button:hover { background: rgba(255,255,255,.11); }
-      #${APP}_panel button:disabled { opacity: .45; cursor: default; }
-      #${APP}_extract { grid-column: span 2; background: rgba(109,131,255,.24) !important; border-color: rgba(109,131,255,.42) !important; }
-      #${APP}_textarea { width: 100%; min-height: 190px; max-height: 42vh; resize: vertical; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.22); color: #f5f7fb; padding: 10px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; outline: none; }
-      #${APP}_status { min-height: 18px; color: rgba(245,247,251,.72); font-size: 12px; white-space: pre-wrap; }
+      #${APP}_panel.__open {
+        width: min(420px, calc(100vw - 28px));
+      }
+      #${APP}_panel, #${APP}_panel * {
+        box-sizing: border-box;
+      }
+      #${APP}_panel.__dragging, #${APP}_panel.__dragging * {
+        cursor: grabbing !important;
+        user-select: none !important;
+      }
+      #${APP}_bar {
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) 32px;
+        gap: 7px;
+        align-items: center;
+        padding: 8px;
+      }
+      #${APP}_drag {
+        cursor: grab;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(245,247,251,.74);
+        background: rgba(255,255,255,.06);
+        border: 1px solid rgba(255,255,255,.10);
+        user-select: none;
+        font-weight: 800;
+        line-height: 1;
+        touch-action: none;
+      }
+      #${APP}_panel button {
+        min-height: 32px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(255,255,255,.07);
+        color: #f5f7fb;
+        padding: 0 10px;
+        cursor: pointer;
+        font: inherit;
+        white-space: nowrap;
+      }
+      #${APP}_panel button:hover {
+        background: rgba(255,255,255,.11);
+      }
+      #${APP}_panel button:disabled {
+        opacity: .45;
+        cursor: default;
+      }
+      #${APP}_extract {
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: rgba(109,131,255,.24) !important;
+        border-color: rgba(109,131,255,.42) !important;
+        font-weight: 650 !important;
+      }
+      #${APP}_toggle {
+        width: 32px;
+        padding: 0 !important;
+        font-size: 18px !important;
+        line-height: 1 !important;
+      }
+      #${APP}_menu {
+        display: none;
+        gap: 8px;
+        padding: 0 8px 8px;
+        border-top: 1px solid rgba(255,255,255,.10);
+      }
+      #${APP}_panel.__open #${APP}_menu {
+        display: grid;
+      }
+      #${APP}_actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding-top: 8px;
+      }
+      #${APP}_textarea {
+        width: 100%;
+        min-height: 142px;
+        max-height: 38vh;
+        resize: vertical;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.12);
+        background: rgba(0,0,0,.22);
+        color: #f5f7fb;
+        padding: 10px;
+        font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        outline: none;
+      }
+      #${APP}_status {
+        min-height: 18px;
+        color: rgba(245,247,251,.72);
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
       @media (prefers-color-scheme: light) {
-        #${APP}_panel { background: rgba(255,255,255,.94); color: #111827; border-color: rgba(17,24,39,.12); box-shadow: 0 18px 48px rgba(15,23,42,.18); }
-        #${APP}_header { border-bottom-color: rgba(17,24,39,.10); }
-        #${APP}_drag, #${APP}_panel button { background: rgba(17,24,39,.05); border-color: rgba(17,24,39,.12); color: #111827; }
-        #${APP}_panel button:hover { background: rgba(17,24,39,.08); }
-        #${APP}_title strong { color: #111827; }
-        #${APP}_title span, #${APP}_status { color: rgba(17,24,39,.66); }
-        #${APP}_textarea { background: rgba(17,24,39,.04); border-color: rgba(17,24,39,.12); color: #111827; }
+        #${APP}_panel {
+          background: rgba(255,255,255,.94);
+          color: #111827;
+          border-color: rgba(17,24,39,.12);
+          box-shadow: 0 14px 38px rgba(15,23,42,.18);
+        }
+        #${APP}_menu {
+          border-top-color: rgba(17,24,39,.10);
+        }
+        #${APP}_drag, #${APP}_panel button {
+          background: rgba(17,24,39,.05);
+          border-color: rgba(17,24,39,.12);
+          color: #111827;
+        }
+        #${APP}_panel button:hover {
+          background: rgba(17,24,39,.08);
+        }
+        #${APP}_status {
+          color: rgba(17,24,39,.66);
+        }
+        #${APP}_textarea {
+          background: rgba(17,24,39,.04);
+          border-color: rgba(17,24,39,.12);
+          color: #111827;
+        }
       }
     `;
 
@@ -515,7 +621,7 @@
   }
 
   function savePosition(left, top) {
-    try { localStorage.setItem(STORAGE_POSITION, JSON.stringify({ left, top })); } catch (_) {}
+    try { localStorage.setItem(STORAGE_POSITION, JSON.stringify({ left, top })); } catch (_) { }
   }
 
   function clampPanelPosition(left, top) {
@@ -524,8 +630,8 @@
 
     const margin = 10;
     const rect = panel.getBoundingClientRect();
-    const width = rect.width || 440;
-    const height = rect.height || 280;
+    const width = rect.width || (STATE.expanded ? 420 : 286);
+    const height = rect.height || (STATE.expanded ? 260 : 50);
 
     return {
       left: Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - width - margin)),
@@ -558,7 +664,7 @@
       STATE.drag.originTop = rect.top;
 
       STATE.panel.classList.add('__dragging');
-      try { handle.setPointerCapture(event.pointerId); } catch (_) {}
+      try { handle.setPointerCapture(event.pointerId); } catch (_) { }
       event.preventDefault();
     });
 
@@ -585,11 +691,29 @@
       const top = parseFloat(STATE.panel.style.top);
 
       if (Number.isFinite(left) && Number.isFinite(top)) savePosition(left, top);
-      try { handle.releasePointerCapture(event.pointerId); } catch (_) {}
+      try { handle.releasePointerCapture(event.pointerId); } catch (_) { }
     };
 
     handle.addEventListener('pointerup', finish);
     handle.addEventListener('pointercancel', finish);
+  }
+
+  function setExpanded(isExpanded) {
+    STATE.expanded = !!isExpanded;
+
+    if (STATE.panel) {
+      STATE.panel.classList.toggle('__open', STATE.expanded);
+    }
+
+    if (STATE.menu) {
+      STATE.menu.hidden = !STATE.expanded;
+    }
+
+    if (STATE.toggleBtn) {
+      STATE.toggleBtn.textContent = STATE.expanded ? '×' : '⋯';
+      STATE.toggleBtn.title = STATE.expanded ? 'Ocultar opciones' : 'Mostrar opciones';
+      STATE.toggleBtn.setAttribute('aria-expanded', STATE.expanded ? 'true' : 'false');
+    }
   }
 
   function buildPanel() {
@@ -605,39 +729,37 @@
     const panel = document.createElement('div');
     panel.id = `${APP}_panel`;
 
-    const header = document.createElement('div');
-    header.id = `${APP}_header`;
+    const bar = document.createElement('div');
+    bar.id = `${APP}_bar`;
 
     const drag = document.createElement('div');
     drag.id = `${APP}_drag`;
     drag.title = 'Arrastra para mover';
     drag.textContent = '⋮⋮';
 
-    const title = document.createElement('div');
-    title.id = `${APP}_title`;
-
-    const titleStrong = document.createElement('strong');
-    titleStrong.textContent = 'YT-TranscriptClick';
-
-    const titleSmall = document.createElement('span');
-    titleSmall.id = `${APP}_video_title`;
-    titleSmall.textContent = 'YouTube subtitle extractor';
-
-    title.appendChild(titleStrong);
-    title.appendChild(titleSmall);
-    header.appendChild(drag);
-    header.appendChild(title);
-
-    const body = document.createElement('div');
-    body.id = `${APP}_body`;
-
-    const buttons = document.createElement('div');
-    buttons.id = `${APP}_buttons`;
-
     const extractBtn = document.createElement('button');
     extractBtn.id = `${APP}_extract`;
     extractBtn.type = 'button';
     extractBtn.textContent = 'Extraer y copiar';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = `${APP}_toggle`;
+    toggleBtn.type = 'button';
+    toggleBtn.textContent = '⋯';
+    toggleBtn.title = 'Mostrar opciones';
+    toggleBtn.setAttribute('aria-label', 'Mostrar opciones');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+
+    bar.appendChild(drag);
+    bar.appendChild(extractBtn);
+    bar.appendChild(toggleBtn);
+
+    const menu = document.createElement('div');
+    menu.id = `${APP}_menu`;
+    menu.hidden = true;
+
+    const actions = document.createElement('div');
+    actions.id = `${APP}_actions`;
 
     const copyBtn = document.createElement('button');
     copyBtn.id = `${APP}_copy`;
@@ -651,46 +773,44 @@
     downloadBtn.textContent = 'Descargar .txt';
     downloadBtn.disabled = true;
 
-    buttons.appendChild(extractBtn);
-    buttons.appendChild(copyBtn);
-    buttons.appendChild(downloadBtn);
+    actions.appendChild(copyBtn);
+    actions.appendChild(downloadBtn);
 
     const textarea = document.createElement('textarea');
     textarea.id = `${APP}_textarea`;
     textarea.readOnly = true;
-    textarea.placeholder = 'Pulsa “Extraer y copiar”. Si YouTube exige PoToken, activa CC manualmente, espera unos segundos y vuelve a pulsar.';
+    textarea.placeholder = 'Aquí aparecerá el texto extraído.';
 
     const status = document.createElement('div');
     status.id = `${APP}_status`;
     status.textContent = 'Listo. Si acabas de instalar o actualizar el script, recarga el video.';
 
-    body.appendChild(buttons);
-    body.appendChild(textarea);
-    body.appendChild(status);
+    menu.appendChild(actions);
+    menu.appendChild(textarea);
+    menu.appendChild(status);
 
-    panel.appendChild(header);
-    panel.appendChild(body);
+    panel.appendChild(bar);
+    panel.appendChild(menu);
     document.body.appendChild(panel);
 
     STATE.panel = panel;
+    STATE.menu = menu;
     STATE.textarea = textarea;
     STATE.status = status;
     STATE.extractBtn = extractBtn;
+    STATE.toggleBtn = toggleBtn;
     STATE.copyBtn = copyBtn;
     STATE.downloadBtn = downloadBtn;
 
     bindDrag(drag);
+    setExpanded(false);
 
     extractBtn.addEventListener('click', extractAndCopy);
+    toggleBtn.addEventListener('click', () => setExpanded(!STATE.expanded));
     copyBtn.addEventListener('click', copyLastText);
     downloadBtn.addEventListener('click', downloadLastText);
 
     requestAnimationFrame(applySavedPosition);
-  }
-
-  function setVideoTitle(title) {
-    const el = document.getElementById(`${APP}_video_title`);
-    if (el) el.textContent = title || 'Video actual';
   }
 
   function setBusy(isBusy) {
@@ -744,12 +864,12 @@
     try {
       const direct = pageWindow.ytInitialPlayerResponse;
       if (direct) return direct;
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       const raw = pageWindow.ytplayer && pageWindow.ytplayer.config && pageWindow.ytplayer.config.args && pageWindow.ytplayer.config.args.player_response;
       if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
-    } catch (_) {}
+    } catch (_) { }
 
     return null;
   }
@@ -824,7 +944,7 @@
       try {
         const text = await fetchTimedTextUrl(url);
         if (text) return text;
-      } catch (_) {}
+      } catch (_) { }
     }
 
     return '';
@@ -885,7 +1005,6 @@
 
       STATE.videoId = videoId;
       STATE.lastTitle = getVideoTitle();
-      setVideoTitle(STATE.lastTitle);
       setBusy(true);
 
       const existingCapture = findBestCapture(videoId, 0);
@@ -975,7 +1094,6 @@
     const videoId = getCurrentVideoId();
     STATE.videoId = videoId;
     STATE.lastTitle = getVideoTitle();
-    setVideoTitle(videoId ? STATE.lastTitle : 'Abre un video de YouTube');
 
     if (STATE.panel) STATE.panel.style.display = videoId ? '' : 'none';
   }
@@ -993,7 +1111,6 @@
 
       if (videoId) {
         STATE.lastTitle = getVideoTitle();
-        setVideoTitle(STATE.lastTitle);
         setStatus('Video detectado. Pulsa “Extraer y copiar”.');
       }
     }, 800);
